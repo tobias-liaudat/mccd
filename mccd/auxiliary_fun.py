@@ -1485,7 +1485,7 @@ class RunMCCD(object):
                 + cat_id + self.file_extension
 
             if os.path.isfile(input_path):
-                starcat = fits.open(input_path)[self.fits_table_pos]
+                starcat = fits.open(input_path, memmap=False)[self.fits_table_pos]
             else:
                 raise OSError('File {} not found.'.format(input_path))
 
@@ -1536,7 +1536,7 @@ class RunMCCD(object):
                 input_val_path = input_dir + prepro_name + separator + \
                     cat_id + save_extension
 
-                testcat = fits.open(input_val_path)[self.fits_table_pos]
+                testcat = fits.open(input_val_path, memmap=False)[self.fits_table_pos]
 
                 val_dict = mccd_validation(fit_model_path,
                                            testcat,
