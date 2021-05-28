@@ -112,13 +112,14 @@ class MCCD(object):
         Default to ``2``.
     """
 
-    def __init__(self, n_comp_loc, d_comp_glob, upfact=1, ksig_loc=1.,
+    def __init__(self, n_comp_loc, d_comp_glob, d_hyb_loc=3, upfact=1, ksig_loc=1.,
                  ksig_glob=1., n_scales=3, ksig_init=5., filters=None,
                  verbose=2):
         r"""General parameter initialisations."""
         self.n_comp_loc = n_comp_loc
         self.d_comp_glob = d_comp_glob
         self.n_comp_glob = (self.d_comp_glob + 1) * (self.d_comp_glob + 2) // 2
+        self.d_hyb_loc = d_hyb_loc
         self.upfact = upfact
         self.ksig_loc = ksig_loc
         self.ksig_glob = ksig_glob
@@ -649,8 +650,9 @@ class MCCD(object):
         Graphs + polynomials.
         """
         # TODO Hardcoded to 2 the max_degree [TL] [improve]
-        max_deg = 2
-        n_poly_comp = 6
+        max_deg = self.d_hyb_loc
+        n_poly_comp = (max_deg + 1) * (max_deg + 2) // 2
+
         # Take the number of local component top the graph value
         self.n_comp_loc -= n_poly_comp
 
