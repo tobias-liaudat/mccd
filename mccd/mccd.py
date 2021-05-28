@@ -835,126 +835,6 @@ class MCCD(object):
         # Big loop: Main iteration
         for main_it in range(self.nb_iter):
 
-            # Global Optimization
-            for l_glob in range(self.nb_iter_glob):
-                # Global Components Optimization
-
-                # Components gradient update
-                source_glob_grad.update_A(conc(weights_glob, axis=1))
-                source_glob_grad.update_H_loc(conc(H_loc, axis=2))
-
-                # Lipschitz constant for ForwardBackward
-                beta = source_glob_grad.spec_rad * 1.5 + rho_phi
-                tau = 1. / beta
-
-                # Sparsity prox thresholds update
-                thresh = utils.reg_format(
-                    utils.acc_sig_maps(
-                        self.shap[self.n_ccd],
-                        conc(self.shift_ker_stack_adj, axis=2),
-                        conc(self.sigs),
-                        conc(self.flux),
-                        self.flux_ref[self.n_ccd],
-                        self.upfact,
-                        conc(weights_glob, axis=1),
-                        sig_data=np.ones(
-                                (self.shap[self.n_ccd][2],)) \
-                        * self.sig_min[self.n_ccd]))
-
-                thresholds = self.ksig_glob * np.sqrt(
-                    np.array(
-                        [filter_convolve(Sigma_k ** 2, self.Phi_filters ** 2)
-                         for Sigma_k in thresh]))
-                sparsity_prox.update_threshold(tau * thresholds)
-
-                # Reweighting. Borrowed from original RCA code
-                if self.nb_reweight:
-                    reweighter = cwbReweight(self.nb_reweight)
-                    for _ in range(self.nb_reweight):
-                        # Optimize!
-                        source_optim = optimalg.ForwardBackward(
-                            transf_comp[self.n_ccd],
-                            source_glob_grad, sparsity_prox,
-                            cost=source_glob_cost,
-                            beta_param=1. / beta, auto_iterate=False,
-                            verbose=self.verbose, progress=self.verbose)
-                        source_optim.iterate(max_iter=self.nb_subiter_S_glob)
-                        transf_comp[self.n_ccd] = source_optim.x_final
-                        reweighter.reweight(transf_comp[self.n_ccd])
-                        thresholds = reweighter.weights
-                else:
-                    # Optimize!
-                    source_optim = optimalg.ForwardBackward(
-                        transf_comp[self.n_ccd],
-                        source_glob_grad, sparsity_prox, cost=source_glob_cost,
-                        beta_param=1. / beta, auto_iterate=False,
-                        verbose=self.verbose, progress=self.verbose)
-                    source_optim.iterate(max_iter=self.nb_subiter_S_glob)
-                    transf_comp[self.n_ccd] = source_optim.x_final
-
-                    # Save iteration diagnostic data
-                    if self.iter_outputs:
-                        self.iters_glob_S.append(
-                            source_glob_grad.get_iter_cost())
-                        source_glob_grad.reset_iter_cost()
-
-                # Update pixel domain global components
-                comp[self.n_ccd] = utils.rca_format(
-                    np.array([filter_convolve(transf_Sj,
-                                              self.Phi_filters,
-                                              filter_rot=True) for
-                              transf_Sj in transf_comp[self.n_ccd]]))
-
-                # Global Weights Optimization
-
-                # Weights gradient update
-                weight_glob_grad.update_S(comp[self.n_ccd])
-                weight_glob_grad.update_H_loc(conc(H_loc, axis=2))
-
-                # Coefficient sparsity prox update
-                coeff_prox_glob.reset_iter()
-
-                # Conda's algorithm parameters
-                # (lipschitz of diff. part and operator norm of lin. part)
-                # See Conda's paper for more details.
-                beta = weight_glob_grad.spec_rad * 1.5
-                tau = 1. / beta
-                sigma = (1. / lin_recombine_alpha[
-                    self.n_ccd].norm ** 2) * beta / 2
-
-                # try:
-                #     coeff_prox_glob.set_beta_param(beta)
-                # except Exception:
-                #     print('''Exception catched when:
-                #     coeff_prox_glob.set_beta_param(beta)''')
-
-                # Optimize !
-                weight_optim = optimalg.Condat(alpha[self.n_ccd],
-                                               dual_alpha[self.n_ccd],
-                                               weight_glob_grad,
-                                               coeff_prox_glob,
-                                               norm_prox,
-                                               linear=lin_recombine_alpha[
-                                                   self.n_ccd],
-                                               cost=weight_glob_cost,
-                                               max_iter=self.nb_subiter_A_glob,
-                                               tau=tau,
-                                               sigma=sigma,
-                                               verbose=self.verbose,
-                                               progress=self.verbose)
-                alpha[self.n_ccd] = weight_optim.x_final
-                weights_glob = [alpha[self.n_ccd].dot(self.Pi[k])
-                                for k in range(self.n_ccd)]
-
-                # Save iteration diagnostic data
-                if self.iter_outputs:
-                    self.iters_glob_A.append(weight_glob_grad.get_iter_cost())
-                    weight_glob_grad.reset_iter_cost()
-
-                # Global model update
-                H_glob = [comp[self.n_ccd].dot(weights_glob[k])
-                          for k in range(self.n_ccd)]
-
             # Local models update
             for l_loc in range(self.nb_iter_loc):
                 # Loop on all CCDs
@@ -1084,6 +964,128 @@ class MCCD(object):
 
                     # Local model update
                     H_loc[k] = comp[k].dot(weights_loc[k])
+
+
+            # Global Optimization
+            for l_glob in range(self.nb_iter_glob):
+                # Global Components Optimization
+
+                # Components gradient update
+                source_glob_grad.update_A(conc(weights_glob, axis=1))
+                source_glob_grad.update_H_loc(conc(H_loc, axis=2))
+
+                # Lipschitz constant for ForwardBackward
+                beta = source_glob_grad.spec_rad * 1.5 + rho_phi
+                tau = 1. / beta
+
+                # Sparsity prox thresholds update
+                thresh = utils.reg_format(
+                    utils.acc_sig_maps(
+                        self.shap[self.n_ccd],
+                        conc(self.shift_ker_stack_adj, axis=2),
+                        conc(self.sigs),
+                        conc(self.flux),
+                        self.flux_ref[self.n_ccd],
+                        self.upfact,
+                        conc(weights_glob, axis=1),
+                        sig_data=np.ones(
+                                (self.shap[self.n_ccd][2],)) \
+                        * self.sig_min[self.n_ccd]))
+
+                thresholds = self.ksig_glob * np.sqrt(
+                    np.array(
+                        [filter_convolve(Sigma_k ** 2, self.Phi_filters ** 2)
+                         for Sigma_k in thresh]))
+                sparsity_prox.update_threshold(tau * thresholds)
+
+                # Reweighting. Borrowed from original RCA code
+                if self.nb_reweight:
+                    reweighter = cwbReweight(self.nb_reweight)
+                    for _ in range(self.nb_reweight):
+                        # Optimize!
+                        source_optim = optimalg.ForwardBackward(
+                            transf_comp[self.n_ccd],
+                            source_glob_grad, sparsity_prox,
+                            cost=source_glob_cost,
+                            beta_param=1. / beta, auto_iterate=False,
+                            verbose=self.verbose, progress=self.verbose)
+                        source_optim.iterate(max_iter=self.nb_subiter_S_glob)
+                        transf_comp[self.n_ccd] = source_optim.x_final
+                        reweighter.reweight(transf_comp[self.n_ccd])
+                        thresholds = reweighter.weights
+                else:
+                    # Optimize!
+                    source_optim = optimalg.ForwardBackward(
+                        transf_comp[self.n_ccd],
+                        source_glob_grad, sparsity_prox, cost=source_glob_cost,
+                        beta_param=1. / beta, auto_iterate=False,
+                        verbose=self.verbose, progress=self.verbose)
+                    source_optim.iterate(max_iter=self.nb_subiter_S_glob)
+                    transf_comp[self.n_ccd] = source_optim.x_final
+
+                    # Save iteration diagnostic data
+                    if self.iter_outputs:
+                        self.iters_glob_S.append(
+                            source_glob_grad.get_iter_cost())
+                        source_glob_grad.reset_iter_cost()
+
+                # Update pixel domain global components
+                comp[self.n_ccd] = utils.rca_format(
+                    np.array([filter_convolve(transf_Sj,
+                                              self.Phi_filters,
+                                              filter_rot=True) for
+                              transf_Sj in transf_comp[self.n_ccd]]))
+
+                # Global Weights Optimization
+
+                # Weights gradient update
+                weight_glob_grad.update_S(comp[self.n_ccd])
+                weight_glob_grad.update_H_loc(conc(H_loc, axis=2))
+
+                # Coefficient sparsity prox update
+                coeff_prox_glob.reset_iter()
+
+                # Conda's algorithm parameters
+                # (lipschitz of diff. part and operator norm of lin. part)
+                # See Conda's paper for more details.
+                beta = weight_glob_grad.spec_rad * 1.5
+                tau = 1. / beta
+                sigma = (1. / lin_recombine_alpha[
+                    self.n_ccd].norm ** 2) * beta / 2
+
+                # try:
+                #     coeff_prox_glob.set_beta_param(beta)
+                # except Exception:
+                #     print('''Exception catched when:
+                #     coeff_prox_glob.set_beta_param(beta)''')
+
+                # Optimize !
+                weight_optim = optimalg.Condat(alpha[self.n_ccd],
+                                               dual_alpha[self.n_ccd],
+                                               weight_glob_grad,
+                                               coeff_prox_glob,
+                                               norm_prox,
+                                               linear=lin_recombine_alpha[
+                                                   self.n_ccd],
+                                               cost=weight_glob_cost,
+                                               max_iter=self.nb_subiter_A_glob,
+                                               tau=tau,
+                                               sigma=sigma,
+                                               verbose=self.verbose,
+                                               progress=self.verbose)
+                alpha[self.n_ccd] = weight_optim.x_final
+                weights_glob = [alpha[self.n_ccd].dot(self.Pi[k])
+                                for k in range(self.n_ccd)]
+
+                # Save iteration diagnostic data
+                if self.iter_outputs:
+                    self.iters_glob_A.append(weight_glob_grad.get_iter_cost())
+                    weight_glob_grad.reset_iter_cost()
+
+                # Global model update
+                H_glob = [comp[self.n_ccd].dot(weights_glob[k])
+                          for k in range(self.n_ccd)]
+
 
         # Final values
         self.S = comp
