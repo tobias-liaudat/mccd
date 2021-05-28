@@ -399,7 +399,7 @@ class MCCD(object):
 
         if self.loc_model == 'hybrid':
             # Hardcoded a poly deg 2 for the local polynome [TL] [improve]
-            self.n_comp_loc += 6
+            self.n_comp_loc += ((self.d_hyb_loc + 1) * (self.d_hyb_loc + 2) // 2)
 
         if S is None:
             # global eigenPSFs are the last ones
@@ -652,7 +652,6 @@ class MCCD(object):
         # TODO Hardcoded to 2 the max_degree [TL] [improve]
         max_deg = self.d_hyb_loc
         n_poly_comp = (max_deg + 1) * (max_deg + 2) // 2
-
         # Take the number of local component top the graph value
         self.n_comp_loc -= n_poly_comp
 
