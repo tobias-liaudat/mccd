@@ -612,25 +612,34 @@ class MCCD(object):
         are used.
         Normalization of teh polynomials is being done here.
         """
+        # Calculate max and min values of global coordinate system
+        # This configuration is specific for CFIS MegaCam configuration
+        loc2glob = mccd_utils.Loc2Glob()
+        max_x = loc2glob.x_npix*6 + loc2glob.x_gap*5
+        min_x = loc2glob.x_npix*(-5) + loc2glob.x_gap*(-5)
+        max_y = loc2glob.y_npix*2 + loc2glob.y_gap*1
+        min_y = loc2glob.y_npix*(-2) + loc2glob.y_gap*(-2)
+
         self.Pi = [
-            utils.poly_pos(self.obs_pos[k], self.d_comp_glob,
-                           normalice=False, center=False)
+            utils.poly_pos(pos=self.obs_pos[k], max_degree=self.d_comp_glob,
+                           center_normalice = True,
+                           x_lims = [min_x, max_x], y_lims = [min_y, max_y])
             for k in range(self.n_ccd)]
         self.alpha.append(np.eye(self.n_comp_glob))
 
-        # Global position model
-        # Normalization is not done on poly_pos() but globaly here
-        sum_vals = np.zeros(self.n_comp_glob)
-        for it in range(self.n_comp_glob):
-            for it_ccd in range(self.n_ccd):
-                sum_vals[it] += np.sum(self.Pi[it_ccd][it, :] ** 2)
-            sum_vals[it] = np.sqrt(sum_vals[it])
+        # # Global position model
+        # # Normalization is not done on poly_pos() but globaly here
+        # sum_vals = np.zeros(self.n_comp_glob)
+        # for it in range(self.n_comp_glob):
+        #     for it_ccd in range(self.n_ccd):
+        #         sum_vals[it] += np.sum(self.Pi[it_ccd][it, :] ** 2)
+        #     sum_vals[it] = np.sqrt(sum_vals[it])
 
-        self.Pi = [self.Pi[it] / sum_vals.reshape(-1, 1)
-                   for it in range(len(self.Pi))]
-        norm_val = self.Pi[0][0, 0]
-        for it in range(len(self.Pi)):
-            self.Pi[it] /= norm_val
+        # self.Pi = [self.Pi[it] / sum_vals.reshape(-1, 1)
+        #            for it in range(len(self.Pi))]
+        # norm_val = self.Pi[0][0, 0]
+        # for it in range(len(self.Pi)):
+        #     self.Pi[it] /= norm_val
 
         self.A_glob = [self.alpha[self.n_ccd].dot(self.Pi[k])
                        for k in range(self.n_ccd)]
@@ -638,8 +647,9 @@ class MCCD(object):
     def _initialize_loc_poly_model(self):
         r"""Initialize the local polynomial model."""
         self.VT = [
-            utils.poly_pos(self.obs_pos[k], self.d_comp_loc, normalice=True,
-                           center=True)
+            utils.poly_pos(pos=self.obs_pos[k], max_degree=self.d_comp_loc,
+                           center_normalice = True,
+                           x_lims = None, y_lims = None)
             for k in range(self.n_ccd)]
         self.alpha = [np.eye(self.n_comp_loc) for _it in range(self.n_ccd)]
         self.A_loc = [self.alpha[k].dot(self.VT[k]) for k in range(self.n_ccd)]
@@ -661,8 +671,9 @@ class MCCD(object):
         # Calculate the local polynomial and add it to
         # the graph-calculated values
         for k in range(self.n_ccd):
-            poly_VT = utils.poly_pos(self.obs_pos[k], max_degree=max_deg,
-                                     normalice=True, center=True)
+            poly_VT = utils.poly_pos(pos=self.obs_pos[k], max_degree=max_deg,
+                                     center_normalice = True,
+                                     x_lims = None, y_lims = None)
             poly_alpha = np.eye(n_poly_comp)
 
             n_comp_hyb = poly_alpha.shape[0]

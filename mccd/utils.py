@@ -592,28 +592,53 @@ class GraphBuilder(object):
         return vT
 
 
-def poly_pos(pos, max_degree, normalice=False, center=False):
+def poly_pos(pos, max_degree, center_normalice=True,
+             x_lims = None, y_lims = None):
     r"""Construct polynomial matrix.
 
     Return a matrix Pi containing polynomials of stars
     positions up to ``max_degree``.
+    
+    Defaulting to CFIS CCD limits.
+    
+    New method:
+    The positions are scaled to the [-0.5, 0.5]x[-0.5, 0.5].
+    Then the polynomials are constructed with the normalized positions.
+    
+    Old method:
+    Positions are centred, the polynomials are constructed.
+    Then the polynomials are normalized.
+    
     """
     n_mono = (max_degree + 1) * (max_degree + 2) // 2
     Pi = np.zeros((n_mono, pos.shape[0]))
     _pos = np.copy(pos)
 
-    if center:
-        _pos[:, 0] -= (np.max(_pos[:, 0]) - np.min(_pos[:, 0])) / 2
-        _pos[:, 1] -= (np.max(_pos[:, 1]) - np.min(_pos[:, 1])) / 2
+    if x_lims is None:
+        x_min = np.min(_pos[:, 0])
+        x_max = np.max(_pos[:, 0])
+        x_lims = [x_min, x_max]
+        # print('x_lims: ', x_lims)
+
+    if y_lims is None:
+        y_min = np.min(_pos[:, 1])
+        y_max = np.max(_pos[:, 1])
+        y_lims = [y_min, y_max]
+        # print('y_lims: ', y_lims)
+
+    if center_normalice:
+        _pos[:, 0] = (_pos[:, 0] - x_lims[0])/(x_lims[1] - x_lims[0]) - 1/2
+        _pos[:, 1] = (_pos[:, 1] - y_lims[0])/(y_lims[1] - y_lims[0]) - 1/2
+
+    # print('min_x = ', np.min(_pos[:, 0]))     
+    # print('max_x = ', np.max(_pos[:, 0]))
+    # print('min_y = ', np.min(_pos[:, 1])) 
+    # print('max_y = ', np.max(_pos[:, 1]))
 
     for d in range(max_degree + 1):
         row_idx = d * (d + 1) // 2
         for p in range(d + 1):
             Pi[row_idx + p, :] = _pos[:, 0] ** (d - p) * _pos[:, 1] ** p
-
-    if normalice:
-        weight_norms = np.sqrt(np.sum(Pi ** 2, axis=1))
-        Pi /= weight_norms.reshape(-1, 1)
 
     return Pi
 
