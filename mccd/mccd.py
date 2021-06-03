@@ -112,8 +112,8 @@ class MCCD(object):
         Default to ``2``.
     """
 
-    def __init__(self, n_comp_loc, d_comp_glob, d_hyb_loc=3, upfact=1, ksig_loc=1.,
-                 ksig_glob=1., n_scales=3, ksig_init=5., filters=None,
+    def __init__(self, n_comp_loc, d_comp_glob, d_hyb_loc=2, upfact=1, ksig_loc=1.,
+                 ksig_glob=1., n_scales=3, ksig_init=1., filters=None,
                  verbose=2):
         r"""General parameter initialisations."""
         self.n_comp_loc = n_comp_loc
@@ -803,7 +803,10 @@ class MCCD(object):
                           * np.sqrt(x)) + min_elements_loc,
                  np.floor(elem_size / 2)])
 
-        coeff_prox_loc = prox.KThreshold(iter_func_loc)
+
+        # [TL-test] Trying other function
+        iter_func = lambda x, elem_size: np.floor(np.sqrt(x))+1
+        coeff_prox_loc = prox.KThreshold(iter_func)
 
         # Global model
         # The last (1-steady_state_thresh_glob)*100% elements will have same
@@ -820,7 +823,9 @@ class MCCD(object):
                           * np.sqrt(x)) + min_elements_glob,
                  np.floor(elem_size / 2)])
 
-        coeff_prox_glob = prox.KThreshold(iter_func_glob)
+        # [TL-test] Trying other function
+        iter_func_glob_v2 = lambda x, elem_size: np.floor(np.sqrt(x))+1
+        coeff_prox_glob = prox.KThreshold(iter_func_glob_v2)
 
         norm_prox = prox.proxNormalization(type='columns')
         lin_recombine_alpha = [prox.LinRecombineAlpha(self.VT[k])
@@ -945,37 +950,39 @@ class MCCD(object):
                     # Coeff sparsity prox update
                     coeff_prox_loc.reset_iter()
 
-                    # Conda parameters
-                    # (lipschitz of diff. part and operator norm of lin. part)
-                    beta = weight_loc_grad[k].spec_rad * 1.5
-                    tau = 1. / beta
-                    sigma = (1. / lin_recombine_alpha[k].norm ** 2) * beta / 2
+                    # Skip alpha updates for the last iterations
+                    if l_loc < self.nb_iter_loc-1 or l_loc==0:
+                        # Condat parameters
+                        # (lipschitz of diff. part and operator norm of lin. part)
+                        beta = weight_loc_grad[k].spec_rad * 1.5
+                        tau = 1. / beta
+                        sigma = (1. / lin_recombine_alpha[k].norm ** 2) * beta / 2
 
-                    # Optimize
-                    weight_optim = optimalg.Condat(
-                        alpha[k],
-                        dual_alpha[k],
-                        weight_loc_grad[k],
-                        coeff_prox_loc,
-                        norm_prox,
-                        linear=lin_recombine_alpha[k],
-                        cost=weight_loc_cost[k],
-                        max_iter=self.nb_subiter_A_loc,
-                        tau=tau,
-                        sigma=sigma,
-                        verbose=self.verbose,
-                        progress=self.verbose)
-                    alpha[k] = weight_optim.x_final
-                    weights_loc[k] = alpha[k].dot(self.VT[k])
+                        # Optimize
+                        weight_optim = optimalg.Condat(
+                            alpha[k],
+                            dual_alpha[k],
+                            weight_loc_grad[k],
+                            coeff_prox_loc,
+                            norm_prox,
+                            linear=lin_recombine_alpha[k],
+                            cost=weight_loc_cost[k],
+                            max_iter=self.nb_subiter_A_loc,
+                            tau=tau,
+                            sigma=sigma,
+                            verbose=self.verbose,
+                            progress=self.verbose)
+                        alpha[k] = weight_optim.x_final
+                        weights_loc[k] = alpha[k].dot(self.VT[k])
 
-                    # Save iteration diagnostic data
-                    if self.iter_outputs:
-                        self.iters_loc_A[k].append(
-                            weight_loc_grad[k].get_iter_cost())
-                        weight_loc_grad[k].reset_iter_cost()
+                        # Save iteration diagnostic data
+                        if self.iter_outputs:
+                            self.iters_loc_A[k].append(
+                                weight_loc_grad[k].get_iter_cost())
+                            weight_loc_grad[k].reset_iter_cost()
 
-                    # Local model update
-                    H_loc[k] = comp[k].dot(weights_loc[k])
+                        # Local model update
+                        H_loc[k] = comp[k].dot(weights_loc[k])
 
 
             # Global Optimization
@@ -1057,46 +1064,48 @@ class MCCD(object):
                 # Coefficient sparsity prox update
                 coeff_prox_glob.reset_iter()
 
-                # Conda's algorithm parameters
-                # (lipschitz of diff. part and operator norm of lin. part)
-                # See Conda's paper for more details.
-                beta = weight_glob_grad.spec_rad * 1.5
-                tau = 1. / beta
-                sigma = (1. / lin_recombine_alpha[
-                    self.n_ccd].norm ** 2) * beta / 2
 
-                # try:
-                #     coeff_prox_glob.set_beta_param(beta)
-                # except Exception:
-                #     print('''Exception catched when:
-                #     coeff_prox_glob.set_beta_param(beta)''')
+                if l_glob < self.nb_iter_glob-1 or l_glob==0:
+                    # Conda's algorithm parameters
+                    # (lipschitz of diff. part and operator norm of lin. part)
+                    # See Conda's paper for more details.
+                    beta = weight_glob_grad.spec_rad * 1.5
+                    tau = 1. / beta
+                    sigma = (1. / lin_recombine_alpha[
+                        self.n_ccd].norm ** 2) * beta / 2
 
-                # Optimize !
-                weight_optim = optimalg.Condat(alpha[self.n_ccd],
-                                               dual_alpha[self.n_ccd],
-                                               weight_glob_grad,
-                                               coeff_prox_glob,
-                                               norm_prox,
-                                               linear=lin_recombine_alpha[
-                                                   self.n_ccd],
-                                               cost=weight_glob_cost,
-                                               max_iter=self.nb_subiter_A_glob,
-                                               tau=tau,
-                                               sigma=sigma,
-                                               verbose=self.verbose,
-                                               progress=self.verbose)
-                alpha[self.n_ccd] = weight_optim.x_final
-                weights_glob = [alpha[self.n_ccd].dot(self.Pi[k])
-                                for k in range(self.n_ccd)]
+                    # try:
+                    #     coeff_prox_glob.set_beta_param(beta)
+                    # except Exception:
+                    #     print('''Exception catched when:
+                    #     coeff_prox_glob.set_beta_param(beta)''')
 
-                # Save iteration diagnostic data
-                if self.iter_outputs:
-                    self.iters_glob_A.append(weight_glob_grad.get_iter_cost())
-                    weight_glob_grad.reset_iter_cost()
+                    # Optimize !
+                    weight_optim = optimalg.Condat(alpha[self.n_ccd],
+                                                dual_alpha[self.n_ccd],
+                                                weight_glob_grad,
+                                                coeff_prox_glob,
+                                                norm_prox,
+                                                linear=lin_recombine_alpha[
+                                                    self.n_ccd],
+                                                cost=weight_glob_cost,
+                                                max_iter=self.nb_subiter_A_glob,
+                                                tau=tau,
+                                                sigma=sigma,
+                                                verbose=self.verbose,
+                                                progress=self.verbose)
+                    alpha[self.n_ccd] = weight_optim.x_final
+                    weights_glob = [alpha[self.n_ccd].dot(self.Pi[k])
+                                    for k in range(self.n_ccd)]
 
-                # Global model update
-                H_glob = [comp[self.n_ccd].dot(weights_glob[k])
-                          for k in range(self.n_ccd)]
+                    # Save iteration diagnostic data
+                    if self.iter_outputs:
+                        self.iters_glob_A.append(weight_glob_grad.get_iter_cost())
+                        weight_glob_grad.reset_iter_cost()
+
+                    # Global model update
+                    H_glob = [comp[self.n_ccd].dot(weights_glob[k])
+                            for k in range(self.n_ccd)]
 
 
         # Final values
