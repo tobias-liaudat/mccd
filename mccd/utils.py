@@ -618,27 +618,26 @@ def poly_pos(pos, max_degree, center_normalice=True,
         x_min = np.min(_pos[:, 0])
         x_max = np.max(_pos[:, 0])
         x_lims = [x_min, x_max]
-        # print('x_lims: ', x_lims)
 
     if y_lims is None:
         y_min = np.min(_pos[:, 1])
         y_max = np.max(_pos[:, 1])
         y_lims = [y_min, y_max]
-        # print('y_lims: ', y_lims)
 
+    # Center and normalise positions
     if center_normalice:
         _pos[:, 0] = (_pos[:, 0] - x_lims[0])/(x_lims[1] - x_lims[0]) - 1/2
         _pos[:, 1] = (_pos[:, 1] - y_lims[0])/(y_lims[1] - y_lims[0]) - 1/2
 
-    # print('min_x = ', np.min(_pos[:, 0]))     
-    # print('max_x = ', np.max(_pos[:, 0]))
-    # print('min_y = ', np.min(_pos[:, 1])) 
-    # print('max_y = ', np.max(_pos[:, 1]))
-
+    # Build position polynomials
     for d in range(max_degree + 1):
         row_idx = d * (d + 1) // 2
         for p in range(d + 1):
             Pi[row_idx + p, :] = _pos[:, 0] ** (d - p) * _pos[:, 1] ** p
+
+    # Normalize polynomial lines
+    Pi_norms = np.sqrt(np.sum(Pi**2,axis=1))
+    Pi /= Pi_norms.reshape(-1,1)
 
     return Pi
 
