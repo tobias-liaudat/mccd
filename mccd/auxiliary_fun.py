@@ -649,6 +649,10 @@ def mccd_validation(mccd_model_path, testcat, apply_degradation=True,
             star_dict['PSF_LOC_VIGNET_LIST'] = np.copy(
                 np.concatenate(PSF_loc_list, axis=0))
         else:
+            # [TL-test] Setting global comp to zero
+            print('Setting global components to zero.')
+            mccd_model.S[-1] = np.ones_like(mccd_model.S[-1])
+
             if global_pol_interp:
                 interp_Pi = mccd_utils.interpolation_Pi(
                     val_pos_list, mccd_model.d_comp_glob)
