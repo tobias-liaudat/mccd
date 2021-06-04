@@ -975,6 +975,11 @@ class MCCD(object):
                         alpha[k] = weight_optim.x_final
                         weights_loc[k] = alpha[k].dot(self.VT[k])
 
+                        # [TL-test] Normalization as in RCA-PSFEx
+                        # print('After normalization of A as in RCA-PSFEx.')
+                        # weight_norms = np.sqrt(np.sum(weights_loc[k]**2,axis=1))
+                        # weights_loc[k] /= weight_norms.reshape(-1,1)
+
                         # Save iteration diagnostic data
                         if self.iter_outputs:
                             self.iters_loc_A[k].append(
