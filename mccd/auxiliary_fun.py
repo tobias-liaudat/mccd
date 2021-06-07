@@ -650,8 +650,9 @@ def mccd_validation(mccd_model_path, testcat, apply_degradation=True,
                 np.concatenate(PSF_loc_list, axis=0))
         else:
             # [TL-test] Setting global comp to zero
-            print('Setting global components to zero.')
-            mccd_model.S[-1] = np.ones_like(mccd_model.S[-1])
+            # print('Setting global components to zero.')
+            # mccd_model.S[-1] = np.zeros_like(mccd_model.S[-1])
+
 
             if global_pol_interp:
                 interp_Pi = mccd_utils.interpolation_Pi(
