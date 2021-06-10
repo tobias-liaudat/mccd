@@ -593,7 +593,8 @@ class GraphBuilder(object):
 
 
 def poly_pos(pos, max_degree, center_normalice=True,
-             x_lims = None, y_lims = None):
+             x_lims = None, y_lims = None,
+             normalice_Pi=True, min_degree=None):
     r"""Construct polynomial matrix.
 
     Return a matrix Pi containing polynomials of stars
@@ -635,9 +636,16 @@ def poly_pos(pos, max_degree, center_normalice=True,
         for p in range(d + 1):
             Pi[row_idx + p, :] = _pos[:, 0] ** (d - p) * _pos[:, 1] ** p
 
-    # Normalize polynomial lines
-    Pi_norms = np.sqrt(np.sum(Pi**2,axis=1))
-    Pi /= Pi_norms.reshape(-1,1)
+    if min_degree is not None:
+        # Erase the polynomial degrees up to `min_degree`
+        # Monomials to erase
+        del_n_mono = (min_degree + 1) * (min_degree + 2) // 2
+        Pi = Pi[del_n_mono:,:]
+
+    if normalice_Pi:
+        # Normalize polynomial lines
+        Pi_norms = np.sqrt(np.sum(Pi**2,axis=1))
+        Pi /= Pi_norms.reshape(-1,1)
 
     return Pi
 
