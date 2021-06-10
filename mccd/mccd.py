@@ -112,13 +112,21 @@ class MCCD(object):
         Default to ``2``.
     """
 
-    def __init__(self, n_comp_loc, d_comp_glob, d_hyb_loc=2, upfact=1, ksig_loc=1.,
-                 ksig_glob=1., n_scales=3, ksig_init=1., filters=None,
-                 verbose=2):
+    def __init__(self, n_comp_loc, d_comp_glob, d_hyb_loc=2, min_d_comp_glob=None,
+                 upfact=1, ksig_loc=1., ksig_glob=1., n_scales=3, ksig_init=1.,
+                 filters=None, verbose=2):
         r"""General parameter initialisations."""
+        # [TL] TODO Propagate parameters `d_hyb_loc` and `min_d_comp_glob` into config_file.
         self.n_comp_loc = n_comp_loc
         self.d_comp_glob = d_comp_glob
+        self.min_d_comp_glob = min_d_comp_glob
         self.n_comp_glob = (self.d_comp_glob + 1) * (self.d_comp_glob + 2) // 2
+        if self.min_d_comp_glob is not None:
+            if self.min_d_comp_glob>self.d_comp_glob:
+                raise ValueError('The total global degree must be bigger than the minimum degree.')
+            print('Reducing the global polynomial degree with d_min = ', self.min_d_comp_glob)
+            self.n_comp_glob -= (self.min_d_comp_glob+1)*(self.min_d_comp_glob+2)//2
+
         self.d_hyb_loc = d_hyb_loc
         self.upfact = upfact
         self.ksig_loc = ksig_loc
@@ -610,7 +618,7 @@ class MCCD(object):
 
         The positions in the global coordinate system
         are used.
-        Normalization of teh polynomials is being done here.
+        Normalization of the polynomials is being done here.
         """
         # Calculate max and min values of global coordinate system
         # This configuration is specific for CFIS MegaCam configuration
@@ -623,9 +631,19 @@ class MCCD(object):
         self.Pi = [
             utils.poly_pos(pos=self.obs_pos[k], max_degree=self.d_comp_glob,
                            center_normalice = True,
-                           x_lims = [min_x, max_x], y_lims = [min_y, max_y])
+                           x_lims = [min_x, max_x], y_lims = [min_y, max_y],
+                           normalice_Pi=False, min_degree=self.min_d_comp_glob)
             for k in range(self.n_ccd)]
+
+
         self.alpha.append(np.eye(self.n_comp_glob))
+
+        # Global position model normalisation
+        # Start with the list Pi
+        print('New global normalisation!')
+        conc_Pi = np.concatenate((self.Pi), axis=1)
+        Pi_norms = np.sqrt(np.sum(conc_Pi**2,axis=1)).reshape(-1,1)
+        self.Pi = [self.Pi[k]/Pi_norms for k in range(self.n_ccd)]
 
         # # Global position model
         # # Normalization is not done on poly_pos() but globaly here
