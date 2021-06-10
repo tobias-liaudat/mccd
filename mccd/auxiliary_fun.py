@@ -653,7 +653,8 @@ def mccd_validation(mccd_model_path, testcat, apply_degradation=True,
             # print('Setting global components to zero.')
             # mccd_model.S[-1] = np.zeros_like(mccd_model.S[-1])
 
-
+            print('For the moment we are cancelling the global_pol_interp')
+            global_pol_interp=False
             if global_pol_interp:
                 interp_Pi = mccd_utils.interpolation_Pi(
                     val_pos_list, mccd_model.d_comp_glob)
