@@ -922,8 +922,16 @@ def interpolation_Pi(position_list, d_comp_glob):
 
     interp_Pi = [utils.poly_pos(pos=interp_pos, max_degree=d_comp_glob,
                                 center_normalice=True,
-                                x_lims = [min_x, max_x], y_lims = [min_y, max_y])
+                                x_lims = [min_x, max_x], y_lims = [min_y, max_y],
+                                normalice_Pi=False)
                  for interp_pos in position_list]
+
+    # Global position model normalisation
+    # Start with the list Pi
+    print('New global normalisation! WARNING! Should be modified in this case.')
+    conc_Pi = np.concatenate((interp_Pi), axis=1)
+    Pi_norms = np.sqrt(np.sum(conc_Pi**2,axis=1)).reshape(-1,1)
+    interp_Pi = [interp_Pi[k]/Pi_norms for k in range(len(interp_Pi))]
 
     # # Global position model
     # # Normalization is not done on poly_pos() but globaly here
