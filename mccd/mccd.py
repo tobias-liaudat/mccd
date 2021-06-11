@@ -811,8 +811,8 @@ class MCCD(object):
         # threshold
         # min_elements_loc: Minimum number of elements to maintain when
         # threshold is the highest
-        steady_state_thresh_loc = 0.8
-        min_elements_loc = 5
+        steady_state_thresh_loc = 0.5 # 0.8
+        min_elements_loc = 1 # 5
 
         def iter_func_loc(x, elem_size):
             return np.min(
@@ -823,16 +823,17 @@ class MCCD(object):
 
 
         # [TL-test] Trying other function
-        iter_func = lambda x, elem_size: np.floor(np.sqrt(x))+1
-        coeff_prox_loc = prox.KThreshold(iter_func)
+        # print('Using Tobi prox for local alpha sparsity.')
+        iter_func_loc = lambda x, elem_size: np.floor(np.sqrt(x))+1
+        coeff_prox_loc = prox.KThreshold(iter_func_loc)
 
         # Global model
         # The last (1-steady_state_thresh_glob)*100% elements will have same
         # threshold
         # min_elements_glob: Minimum number of elements to maintain when
         # threshold is the highest
-        steady_state_thresh_glob = 0.8
-        min_elements_glob = 5
+        steady_state_thresh_glob = 0.5 # 0.8
+        min_elements_glob = 1 # 5
 
         def iter_func_glob(x, elem_size):
             return np.min(
@@ -842,6 +843,7 @@ class MCCD(object):
                  np.floor(elem_size / 2)])
 
         # [TL-test] Trying other function
+        # print('Using Tobi prox for global alpha sparsity.')
         iter_func_glob_v2 = lambda x, elem_size: np.floor(np.sqrt(x))+1
         coeff_prox_glob = prox.KThreshold(iter_func_glob_v2)
 
@@ -1004,8 +1006,8 @@ class MCCD(object):
                                 weight_loc_grad[k].get_iter_cost())
                             weight_loc_grad[k].reset_iter_cost()
 
-                        # Local model update
-                        H_loc[k] = comp[k].dot(weights_loc[k])
+                    # Local model update
+                    H_loc[k] = comp[k].dot(weights_loc[k])
 
 
             # Global Optimization
@@ -1126,9 +1128,9 @@ class MCCD(object):
                         self.iters_glob_A.append(weight_glob_grad.get_iter_cost())
                         weight_glob_grad.reset_iter_cost()
 
-                    # Global model update
-                    H_glob = [comp[self.n_ccd].dot(weights_glob[k])
-                            for k in range(self.n_ccd)]
+                # Global model update
+                H_glob = [comp[self.n_ccd].dot(weights_glob[k])
+                        for k in range(self.n_ccd)]
 
 
         # Final values
